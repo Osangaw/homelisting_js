@@ -1,7 +1,12 @@
-const { default: mongoose } = require("mongoose");
+const mongoose = require("mongoose");
 
 const homeSchema = new mongoose.Schema({
-  location: {
+  title: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  description: {
     type: String,
     required: true,
   },
@@ -9,9 +14,26 @@ const homeSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  description: {
+  category: {
+    type: String,
+    enum: ['rent', 'sale'],
+    required: true,
+  },
+  country: {
     type: String,
     required: true,
+    trim: true,
+    default: "Nigeria"
+  },
+  location: { // This represents City/State
+    type: String,
+    required: true,
+    trim: true
+  },
+  address: { // This represents House No / Street
+    type: String,
+    required: true,
+    trim: true
   },
   bedrooms: {
     type: Number,
@@ -23,9 +45,23 @@ const homeSchema = new mongoose.Schema({
   },
   garage: {
     type: Number,
-    required: true,
+    default: 0
+  },
+  image: { 
+    type: String 
+  },
+  images: [
+    {
+      img: { type: String, required: true },
+      public_id: { type: String } 
+    }
+  ],
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
   }
-},({ timestamps: true }));
+}, { timestamps: true });
 
 const Home = mongoose.model("Home", homeSchema);
 module.exports = Home;

@@ -24,7 +24,7 @@ const emailLayout = (otp) => {
     <h1>Hello,</h1>
     <P>Welcome to my home listing app</P>
     <P>Use this verification code to complete your signUp </P>
-    <p>verification code : ${otp}</p>
+    <p>Your verification code is: ${otp}</p>
 </body>
 </html>`;
 }

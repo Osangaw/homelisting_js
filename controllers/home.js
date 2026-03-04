@@ -1,86 +1,110 @@
-const Home = require("../models/home");
+const Home = require("../models/Home"); 
+const { uploadFile } = require("../util/cloudinary");
 
 exports.createHome = async (req, res) => {
-  const { location, price, description, bedrooms, bathrooms, garage, kitchen } =
-    req.body;
   try {
+    const { 
+      title, description, price, category, 
+      country, location, address, bedrooms, bathrooms, garage 
+    } = req.body;
+
+    let images = [];
+    let mainImage = "";
+
+    if (req.files && req.files.length > 0) {
+      const uploadPromises = req.files.map((file) => uploadFile(file.path));
+      const uploadResults = await Promise.all(uploadPromises);
+
+      images = uploadResults.map((result) => ({
+        img: result.uri, 
+        public_id: result.public_id,
+      }));
+
+      mainImage = images.length > 0 ? images[0].img : "";
+    }
+
     const newHome = new Home({
-      location,
-      price,
+      title,
       description,
+      price,
+      category,
+      country,
+      location,
+      address,
       bedrooms,
       bathrooms,
       garage,
+      image: mainImage,
+      images: images,
+      createdBy: req.user.id 
     });
+
     await newHome.save();
-    console.log("home listed successfully", newHome);
-    return res
-      .status(201)
-      .json({ message: "new home listed successfully", newHome });
+    return res.status(201).json({ message: "New home listed successfully", home: newHome });
+
   } catch (e) {
-    console.log("error in adding home", e);
-    return res.status(500).json({ message: "Internal sever error" });
-  }
-};
-exports.findOneHome = async (req, res) => {
-  try {
-    const { id } = req.body;
-    const findHome = await Home.findOne({ id });
-    if (!findHome) {
-      console.log("Home not found");
-      return res.status(500).json({ message: "Home not found" });
-    }
-    console.log("Home found successfully", findHome);
-    return res.status(200).json({ message: "Home found Successfully" });
-  } catch (e) {
-    console.log("error in finding home", e);
+    console.error("Error in adding home:", e.message);
+    if (e.name === "ValidationError") return res.status(400).json({ message: e.message });
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-exports.allHomes = async (req, res) => {
+
+exports.findOneHome = async (req, res) => {
   try {
-    const homes = await Home.find();
-    console.log("All homes retrieved successfully", homes);
-    return res.status(200).json({ homes });
+    const { id } = req.params; 
+    const findHome = await Home.findById(id).populate("createdBy", "fullName email");
+    
+    if (!findHome) {
+      return res.status(404).json({ message: "Home not found" });
+    }
+    
+    return res.status(200).json({ message: "Home found successfully", home: findHome });
   } catch (e) {
-    console.log("error in retreiving homes", e);
-    return res.status(500).json({ message: "internal server error" });
+    return res.status(500).json({ message: "Error finding home" });
   }
 };
+
+exports.allHomes = async (req, res) => {
+  try {
+    // Logic: Added sort to show newest listings first
+    const homes = await Home.find().sort({ createdAt: -1 });
+    return res.status(200).json({ count: homes.length, homes });
+  } catch (e) {
+    return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 exports.updateHome = async (req, res) => {
   const { id } = req.params;
   try {
-    const home = await Home.findOne({ _id: id });
-    if (!home) {
-      return res.status(200).json({ message: "Home doesnt exist" });
+    const updatedHome = await Home.findByIdAndUpdate(
+      id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedHome) {
+      return res.status(404).json({ message: "Home doesn't exist" });
     }
-    (home.location = req.body.location),
-      (home.price = req.body.price),
-      (home.description = req.body.description),
-      (home.bedrooms = req.body.bedrooms),
-      (home.bathrooms = req.body.bathrooms),
-      (home.garage = req.body.garage);
-    const update = await home.save();
-    if (update) {
-      console.log("Home was updated successfully", home);
-      return res.status(200).json({ message: "Home updated successfully" });
-    }
+
+    return res.status(200).json({ message: "Home updated successfully", home: updatedHome });
   } catch (e) {
-    console.log("Internal server error", e);
+    return res.status(500).json({ message: "Update failed" });
   }
 };
 
 exports.deleteHome = async (req, res) => {
   const { id } = req.params;
   try {
-    const home = await Home.findOneAndDelete({ _id: id });
-    if (!home) {
-      return res.status(200).json({ message: `home with ${id} doesnt exist` });
+    const deletedHome = await Home.findByIdAndDelete(id);
+
+    if (!deletedHome) {
+      return res.status(404).json({ message: "Home doesn't exist" });
     }
-    console.log("home deleted successfully", home);
-    return res.status(200).json({ message: "home deleted successfully" });
-  } catch (err) {
-    console.log("error in deleting home", err);
-    return res.status(500).json({ message: "Internal server error" });
+
+    return res.status(200).json({ message: "Home deleted successfully" });
+  } catch (e) {
+    return res.status(500).json({ message: "Delete failed" });
   }
-};
+
+}
